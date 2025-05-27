@@ -1,0 +1,86 @@
+plugins {
+    id 'org.springframework.boot' version '3.4.5'
+    id 'io.spring.dependency-management' version '1.1.7'
+    id 'java'
+    id 'maven-publish'
+    id 'jacoco'
+}
+group = 'com.hdfcbank'
+version = '0.0.1-SNAPSHOT'
+description = 'uamadapterreport'
+java.sourceCompatibility = JavaVersion.VERSION_17
+java.targetCompatibility = JavaVersion.VERSION_17
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+publishing {
+    repositories {
+        mavenLocal()
+    }
+    publications {
+        mavenJava(org.gradle.api.publish.maven.MavenPublication) {
+            groupId 'com.hdfcbank'
+            artifactId 'uamadapterreport'
+            version '0.0.1-SNAPSHOT'
+            from components.java
+            versionMapping {
+                usage('java-api') {
+                    fromResolutionOf('runtimeClasspath')
+                }
+                usage('java-runtime') {
+                    fromResolutionResult()
+                }
+            }
+        }
+    }
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+
+
+dependencies {
+    // Spring Boot dependencies
+
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'com.zaxxer:HikariCP:6.3.0'
+    implementation 'org.springframework.boot:spring-boot-starter-integration'
+    implementation 'org.projectlombok:lombok:1.18.26'
+    annotationProcessor 'org.projectlombok:lombok:1.18.26'
+    // PostgreSQL Driver
+    runtimeOnly 'org.postgresql:postgresql:42.7.5'
+
+    // SFTP and File Handling
+    implementation 'com.jcraft:jsch:0.1.55' // SFTP client
+    implementation 'commons-io:commons-io:2.19.0' // File utilities
+
+    // Testing Dependencies
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.integration:spring-integration-test'
+    testImplementation 'org.mockito:mockito-core:5.6.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+tasks.withType(Javadoc) {
+    options.encoding = 'UTF-8'
+}
+
+tasks.withType(org.springframework.boot.gradle.tasks.bundling.BootJar) {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+test {
+    useJUnitPlatform()
+}

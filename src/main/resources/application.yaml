@@ -1,0 +1,55 @@
+server:
+  port: ${PORT:8099}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:*}
+
+logging:
+  level:
+    root: ${LOGGING_LEVEL_ROOT:INFO}
+    com.zaxxer.hikari: INFO
+    org.springframework.boot.autoconfigure.jdbc: INFO
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://34.135.239.235:5432/postgresdb?ApplicationName=uamreporting&currentSchema=public}
+    username: ${SPRING_DATASOURCE_USERNAME:admin}
+    password: ${SPRING_DATASOURCE_PASSWORD:test123}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:org.postgresql.Driver}
+    type: com.zaxxer.hikari.HikariDataSource
+    hikari:
+      minimum-idle: ${SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE:5}
+      maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:20}
+      pool-name: ${SPRING_DATASOURCE_HIKARI_POOL_NAME:uam-report}
+      connection-timeout: ${SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT:60000}
+      max-lifetime: ${SPRING_DATASOURCE_HIKARI_MAX_LIFETIME:1800000}
+      keepalive-time: ${SPRING_DATASOURCE_HIKARI_KEEPALIVE_TIME:60000}
+
+  jpa:
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+    show-sql: ${SPRING_JPA_SHOW_SQL:true}
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+report:
+  directory: ${REPORT_DIRECTORY:D:/testfile}
+  scheduler:
+    cron: ${REPORT_SCHEDULER_CRON:0 */2 * * * ?}
+  csv:
+    delimiter: ${REPORT_CSV_DELIMITER:,}
+  cleanup:
+    retry-count: ${REPORT_CLEANUP_RETRYCOUNT:3}
+    retry-delay-ms: ${REPORT_CLEANUP_RETRYDELAY:500}
+sftp:
+  host: ${SFTP_HOST:35.226.240.30}
+  port: ${SFTP_PORT:22}
+  username: ${SFTP_USERNAME:demo}
+  password: ${SFTP_PASSWORD:demo}
+  directory: ${SFTP_DIRECTORY:/sftp/adaptertest}
+  private-key-path: ${SFTP_PRIVATEKEYPATH:DUMMY}
+  private-key-passphrase: ${SFTP_PRIVATEKEYPASSPHRASE:DUMMY}
