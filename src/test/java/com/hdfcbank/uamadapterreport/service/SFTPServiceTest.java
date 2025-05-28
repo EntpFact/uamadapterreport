@@ -1,8 +1,7 @@
 package com.hdfcbank.uamadapterreport.service;
 
-import com.jcraft.jsch.ChannelSftp;
-import com.jcraft.jsch.JSch;
-import com.jcraft.jsch.Session;
+import com.hdfcbank.uamadapterreport.exception.CustomException;
+import com.jcraft.jsch.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedConstruction;
@@ -11,6 +10,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.util.Properties;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
 class SFTPServiceTest {
@@ -32,8 +32,6 @@ class SFTPServiceTest {
             var field = target.getClass().getDeclaredField(fieldName);
             field.setAccessible(true);
             field.set(target, value);
-        } catch (NoSuchFieldException e) {
-            throw new RuntimeException("Field '" + fieldName + "' not found in " + target.getClass().getSimpleName(), e);
         } catch (Exception e) {
             throw new RuntimeException("Failed to set field '" + fieldName + "'", e);
         }
@@ -67,4 +65,51 @@ class SFTPServiceTest {
 
         tempFile.delete();
     }
+
+    @Test
+    void testUploadFile_connectionFailure_throwsCustomException() {
+        File dummyFile = new File("nonexistent.csv");
+
+        try (
+                MockedConstruction<JSch> jschMock = mockConstruction(JSch.class, (jsch, context) -> {
+                    when(jsch.getSession("user", "localhost", 22))
+                            .thenThrow(new RuntimeException("Simulated connection failure"));
+                })
+        ) {
+            assertThrows(CustomException.class,
+                    () -> sftpService.uploadFile(dummyFile.getAbsolutePath(), "remote/test.csv"));
+        }
+    }
+
+    @Test
+    void testUploadFile_privateKeyAuthentication() throws Exception {
+        File tempFile = File.createTempFile("test-key", ".csv");
+        try (FileWriter writer = new FileWriter(tempFile)) {
+            writer.write("private,key,test\n");
+        }
+
+        setPrivateField(sftpService, "sftpPassword", null); // Simulate no password
+
+        try (
+                MockedConstruction<JSch> jschMock = mockConstruction(JSch.class, (jsch, context) -> {
+                    Session session = mock(Session.class);
+                    ChannelSftp channelSftp = mock(ChannelSftp.class);
+
+                    doNothing().when(jsch).addIdentity(anyString(), anyString());
+                    when(jsch.getSession("user", "localhost", 22)).thenReturn(session);
+                    doNothing().when(session).setConfig(any(Properties.class));
+                    doNothing().when(session).connect();
+                    when(session.openChannel("sftp")).thenReturn(channelSftp);
+                    doNothing().when(channelSftp).connect();
+                    doNothing().when(channelSftp).put((String) any(), eq("remote/keytest.csv"));
+                    doNothing().when(channelSftp).disconnect();
+                    doNothing().when(session).disconnect();
+                })
+        ) {
+            sftpService.uploadFile(tempFile.getAbsolutePath(), "remote/keytest.csv");
+        }
+
+        tempFile.delete();
+    }
+
 }

@@ -1,6 +1,5 @@
 package com.hdfcbank.uamadapterreport.service;
 
-import com.hdfcbank.uamadapterreport.exception.CustomException;
 import com.hdfcbank.uamadapterreport.model.ReportConfig;
 import com.hdfcbank.uamadapterreport.repository.ReportConfigRepository;
 import com.hdfcbank.uamadapterreport.util.TestUtils;
@@ -8,8 +7,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 
@@ -41,11 +40,6 @@ class ReportServiceTest {
         TestUtils.setField(reportService, "retryDelayMs", 10L);
     }
 
-    private String getFileNameFromPattern(String pattern) {
-        String timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-        return pattern.replace("{timestamp}", timestamp);
-    }
-
     @Test
     void testGenerateAllReports_withValidData() throws Exception {
         String pattern = "report_{timestamp}.csv";
@@ -62,8 +56,10 @@ class ReportServiceTest {
 
         reportService.generateAllReports();
 
-        verify(sftpService).uploadFile(argThat(p -> p.endsWith(".csv")),
-                eq("/upload/custom/" + getFileNameFromPattern(pattern)));
+        verify(sftpService).uploadFile(
+                argThat(localPath -> localPath.endsWith(".csv")),
+                argThat(remotePath -> remotePath.startsWith("/upload/custom/report_") && remotePath.endsWith(".csv"))
+        );
     }
 
     @Test
@@ -94,11 +90,11 @@ class ReportServiceTest {
 
         reportService.generateReport(config);
 
-        verify(sftpService).uploadFile(argThat(p -> p.endsWith(".csv")),
-                eq("/upload/single/" + getFileNameFromPattern(pattern)));
+        verify(sftpService).uploadFile(
+                argThat(localPath -> localPath.endsWith(".csv")),
+                argThat(remotePath -> remotePath.startsWith("/upload/single/single_") && remotePath.endsWith(".csv"))
+        );
     }
-
-
 
     @Test
     void testGenerateReport_withInvalidReportDirectory_shouldLogErrorAndNotUpload() {
@@ -116,8 +112,6 @@ class ReportServiceTest {
         // Verify uploadFile was never called due to failure
         verify(sftpService, never()).uploadFile(anyString(), anyString());
     }
-
-
 
     private ReportConfig createReportConfig(String name, String filePattern, String sftpPath) {
         ReportConfig config = new ReportConfig();

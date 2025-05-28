@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.util.Properties;
+
 @Service
 @Slf4j
 public class SFTPService {
@@ -21,13 +23,13 @@ public class SFTPService {
     @Value("${sftp.username}")
     private String sftpUsername;
 
-    @Value("${sftp.password}")
+    @Value("${sftp.password:}")
     private String sftpPassword;
 
-    @Value("${sftp.private-key-path}")
+    @Value("${sftp.private-key-path:}")
     private String privateKeyPath;
 
-    @Value("${sftp.private-key-passphrase}")
+    @Value("${sftp.private-key-passphrase:}")
     private String privateKeyPassphrase;
 
     public void uploadFile(String localFilePath, String remoteFilePath) {
@@ -37,22 +39,28 @@ public class SFTPService {
         try {
             JSch jsch = new JSch();
 
-            // Load private key with or without passphrase
-            if (privateKeyPassphrase != null && !privateKeyPassphrase.isBlank()) {
-                jsch.addIdentity(privateKeyPath, privateKeyPassphrase);
-            } else {
-                jsch.addIdentity(privateKeyPath);
+            // Add private key if present
+            if (privateKeyPath != null && !privateKeyPath.isBlank()) {
+                if (privateKeyPassphrase != null && !privateKeyPassphrase.isBlank()) {
+                    jsch.addIdentity(privateKeyPath, privateKeyPassphrase);
+                    log.info("Using private key with passphrase for authentication.");
+                } else {
+                    jsch.addIdentity(privateKeyPath);
+                    log.info("Using private key without passphrase for authentication.");
+                }
             }
 
             session = jsch.getSession(sftpUsername, sftpHost, sftpPort);
 
-            // Set password as well (JSch may ignore it if key is accepted)
-            session.setPassword(sftpPassword);
+            // Fallback to password if private key is not used
+            if ((privateKeyPath == null || privateKeyPath.isBlank()) && sftpPassword != null) {
+                session.setPassword(sftpPassword);
+                log.info("Using password for authentication.");
+            }
 
-            java.util.Properties config = new java.util.Properties();
+            Properties config = new Properties();
             config.put("StrictHostKeyChecking", "no");
             session.setConfig(config);
-
             session.connect();
 
             Channel channel = session.openChannel("sftp");
