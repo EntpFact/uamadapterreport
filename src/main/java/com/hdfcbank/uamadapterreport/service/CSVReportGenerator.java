@@ -1,6 +1,8 @@
 package com.hdfcbank.uamadapterreport.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -13,34 +15,29 @@ import java.util.Map;
 @Slf4j
 public class CSVReportGenerator {
 
-    private final String delimiter;
+    private final char delimiter;
 
     public CSVReportGenerator(@Value("${report.csv.delimiter:,}") String delimiter) {
-        this.delimiter = delimiter;
+        this.delimiter = delimiter.charAt(0);
     }
 
     public void generateCSVReport(List<Map<String, Object>> data, String filePath) throws IOException {
-        try (FileWriter writer = new FileWriter(filePath)) {
-            if (data == null || data.isEmpty()) {
-                writer.append("\"No data available\"\n");
-                log.info("No data available for this report");
-                return;
+        if (data == null || data.isEmpty()) {
+            try (FileWriter writer = new FileWriter(filePath)) {
+                writer.write("No data available\n");
             }
+            return;
+        }
 
-            List<String> headers = data.get(0).keySet().stream().toList();
-            String headerLine = String.join(delimiter, headers);
-            writer.append("\"").append(headerLine).append("\"\n");
+        List<String> headers = data.get(0).keySet().stream().toList();
+
+        try (CSVPrinter printer = new CSVPrinter(new FileWriter(filePath),
+                CSVFormat.DEFAULT.withDelimiter(delimiter).withHeader(headers.toArray(new String[0])))) {
 
             for (Map<String, Object> row : data) {
-                StringBuilder rowBuilder = new StringBuilder();
-                for (int i = 0; i < headers.size(); i++) {
-                    Object value = row.get(headers.get(i));
-                    String cell = value != null ? value.toString() : "";
-                    cell = cell.replace("\"", "\"\""); // Escape quotes
-                    rowBuilder.append(cell);
-                    if (i < headers.size() - 1) rowBuilder.append(delimiter);
-                }
-                writer.append("\"").append(rowBuilder.toString()).append("\"\n");
+                printer.printRecord(headers.stream()
+                        .map(h -> row.getOrDefault(h, ""))
+                        .toList());
             }
         }
     }

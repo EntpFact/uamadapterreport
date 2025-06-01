@@ -6,6 +6,10 @@ management:
     web:
       exposure:
         include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:*}
+  endpoint:
+    health:
+      probes:
+        enabled: ${MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED:true}
 
 logging:
   level:
@@ -49,6 +53,6 @@ sftp:
   port: ${SFTP_PORT:22}
   username: ${SFTP_USERNAME:demo}
   password: ${SFTP_PASSWORD:demo}
-  directory: ${SFTP_DIRECTORY:/sftp/adaptertest}
+  directory: ${SFTP_DIRECTORY:/sftp/adapter/UAM_Reports}
   private-key-path: ${SFTP_PRIVATEKEYPATH:}
   private-key-passphrase: ${SFTP_PRIVATEKEYPASSPHRASE:}

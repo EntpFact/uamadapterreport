@@ -1,115 +1,104 @@
 package com.hdfcbank.uamadapterreport.service;
 
 import com.hdfcbank.uamadapterreport.exception.CustomException;
-import com.jcraft.jsch.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedConstruction;
+import org.mockito.*;
+import org.springframework.integration.sftp.session.SftpRemoteFileTemplate;
 
 import java.io.File;
-import java.io.FileWriter;
-import java.util.Properties;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 class SFTPServiceTest {
 
+    @Mock
+    private SftpRemoteFileTemplate sftpRemoteFileTemplate;
+
+    @InjectMocks
     private SFTPService sftpService;
+
+    private AutoCloseable mocks;
 
     @BeforeEach
     void setUp() {
-        sftpService = new SFTPService();
-
-        setPrivateField(sftpService, "sftpHost", "localhost");
-        setPrivateField(sftpService, "sftpPort", 22);
-        setPrivateField(sftpService, "sftpUsername", "user");
-        setPrivateField(sftpService, "sftpPassword", "pass");
+        mocks = MockitoAnnotations.openMocks(this);
     }
 
-    private void setPrivateField(Object target, String fieldName, Object value) {
+    @Test
+    void testUploadFile_success() {
+        String localFilePath = "src/test/resources/test-upload.txt";
+        String remoteFilePath = "remote/dir/test-upload.txt";
+
+        // Ensure the test file exists
+        File testFile = new File(localFilePath);
+        testFile.getParentFile().mkdirs();
         try {
-            var field = target.getClass().getDeclaredField(fieldName);
-            field.setAccessible(true);
-            field.set(target, value);
+            if (!testFile.exists()) {
+                assertTrue(testFile.createNewFile());
+                testFile.deleteOnExit();
+            }
         } catch (Exception e) {
-            throw new RuntimeException("Failed to set field '" + fieldName + "'", e);
+            fail("Failed to create test file: " + e.getMessage());
         }
+
+        // Mock the execute method, no explicit SessionCallback class needed
+        when(sftpRemoteFileTemplate.execute(any())).thenReturn(null);
+
+        // Verify no exception is thrown during upload
+        assertDoesNotThrow(() -> sftpService.uploadFile(localFilePath, remoteFilePath));
+
+        // Verify execute was called exactly once
+        verify(sftpRemoteFileTemplate, times(1)).execute(any());
     }
 
     @Test
-    void testUploadFile_success() throws Exception {
-        File tempFile = File.createTempFile("test", ".csv");
-        try (FileWriter writer = new FileWriter(tempFile)) {
-            writer.write("sample,data\n");
-        }
+    void testUploadFile_fileNotFound_shouldThrowException() {
+        String nonExistentPath = "non/existent/file.txt";
+        String remoteFilePath = "remote/dir/file.txt";
 
-        try (
-                MockedConstruction<JSch> jschMock = mockConstruction(JSch.class, (jsch, context) -> {
-                    Session session = mock(Session.class);
-                    ChannelSftp channelSftp = mock(ChannelSftp.class);
+        CustomException exception = assertThrows(CustomException.class, () ->
+                sftpService.uploadFile(nonExistentPath, remoteFilePath)
+        );
 
-                    when(jsch.getSession("user", "localhost", 22)).thenReturn(session);
-                    doNothing().when(session).setPassword("pass");
-                    doNothing().when(session).setConfig(any(Properties.class));
-                    doNothing().when(session).connect();
-                    when(session.openChannel("sftp")).thenReturn(channelSftp);
-                    doNothing().when(channelSftp).connect();
-                    doNothing().when(channelSftp).put(any(java.io.InputStream.class), eq("remote/test.csv"));
-                    doNothing().when(channelSftp).disconnect();
-                    doNothing().when(session).disconnect();
-                })
-        ) {
-            sftpService.uploadFile(tempFile.getAbsolutePath(), "remote/test.csv");
-        }
+        assertTrue(exception.getMessage().contains("SFTP upload failed for file"));
+        assertNotNull(exception.getCause());
+        assertTrue(exception.getCause() instanceof IllegalArgumentException);
+        assertTrue(exception.getCause().getMessage().contains("Local file does not exist"));
 
-        tempFile.delete();
+        verify(sftpRemoteFileTemplate, never()).execute(any());
     }
 
     @Test
-    void testUploadFile_connectionFailure_throwsCustomException() {
-        File dummyFile = new File("nonexistent.csv");
+    void testUploadFile_sftpExecuteFails_shouldThrowCustomException() {
+        String localFilePath = "src/test/resources/test-fail.txt";
+        String remoteFilePath = "remote/dir/test-fail.txt";
 
-        try (
-                MockedConstruction<JSch> jschMock = mockConstruction(JSch.class, (jsch, context) -> {
-                    when(jsch.getSession("user", "localhost", 22))
-                            .thenThrow(new RuntimeException("Simulated connection failure"));
-                })
-        ) {
-            assertThrows(CustomException.class,
-                    () -> sftpService.uploadFile(dummyFile.getAbsolutePath(), "remote/test.csv"));
-        }
-    }
-
-    @Test
-    void testUploadFile_privateKeyAuthentication() throws Exception {
-        File tempFile = File.createTempFile("test-key", ".csv");
-        try (FileWriter writer = new FileWriter(tempFile)) {
-            writer.write("private,key,test\n");
+        // Create dummy test file if it doesn't exist
+        File testFile = new File(localFilePath);
+        testFile.getParentFile().mkdirs();
+        try {
+            if (!testFile.exists()) {
+                assertTrue(testFile.createNewFile());
+                testFile.deleteOnExit();
+            }
+        } catch (Exception e) {
+            fail("Failed to create test file: " + e.getMessage());
         }
 
-        setPrivateField(sftpService, "sftpPassword", null); // Simulate no password
+        // Make execute throw an exception to simulate SFTP failure
+        doThrow(new RuntimeException("Simulated SFTP failure"))
+                .when(sftpRemoteFileTemplate).execute(any());
 
-        try (
-                MockedConstruction<JSch> jschMock = mockConstruction(JSch.class, (jsch, context) -> {
-                    Session session = mock(Session.class);
-                    ChannelSftp channelSftp = mock(ChannelSftp.class);
+        CustomException ex = assertThrows(CustomException.class, () ->
+                sftpService.uploadFile(localFilePath, remoteFilePath)
+        );
 
-                    doNothing().when(jsch).addIdentity(anyString(), anyString());
-                    when(jsch.getSession("user", "localhost", 22)).thenReturn(session);
-                    doNothing().when(session).setConfig(any(Properties.class));
-                    doNothing().when(session).connect();
-                    when(session.openChannel("sftp")).thenReturn(channelSftp);
-                    doNothing().when(channelSftp).connect();
-                    doNothing().when(channelSftp).put((String) any(), eq("remote/keytest.csv"));
-                    doNothing().when(channelSftp).disconnect();
-                    doNothing().when(session).disconnect();
-                })
-        ) {
-            sftpService.uploadFile(tempFile.getAbsolutePath(), "remote/keytest.csv");
-        }
-
-        tempFile.delete();
+        assertTrue(ex.getMessage().contains("SFTP upload failed"));
+        verify(sftpRemoteFileTemplate, times(1)).execute(any());
     }
 
 }

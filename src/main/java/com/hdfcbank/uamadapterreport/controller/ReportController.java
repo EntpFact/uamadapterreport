@@ -46,4 +46,15 @@ public class ReportController {
         }
     }
 
+    @GetMapping("/ready")
+    public ResponseEntity<String> readiness() {
+        return ResponseEntity.ok("Ready");
+    }
+
+    @GetMapping("/healthz")
+    public ResponseEntity<String> health() {
+        return ResponseEntity.ok("Healthy");
+    }
+
+
 }

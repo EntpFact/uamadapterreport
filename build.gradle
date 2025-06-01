@@ -52,22 +52,25 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'com.zaxxer:HikariCP:6.3.0'
-    implementation 'org.springframework.boot:spring-boot-starter-integration'
     implementation 'org.projectlombok:lombok:1.18.26'
     annotationProcessor 'org.projectlombok:lombok:1.18.26'
     // PostgreSQL Driver
     runtimeOnly 'org.postgresql:postgresql:42.7.5'
 
-    // SFTP and File Handling
-    implementation 'com.jcraft:jsch:0.1.55' // SFTP client
-    implementation 'commons-io:commons-io:2.19.0' // File utilities
+    implementation 'org.springframework.integration:spring-integration-file'
+    implementation 'org.springframework.integration:spring-integration-sftp:6.5.0'
+    implementation 'com.jcraft:jsch:0.1.55'
 
+    implementation 'commons-io:commons-io:2.19.0' // File utilities
+    implementation 'org.apache.commons:commons-csv:1.14.0'
 
     // Testing Dependencies
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.integration:spring-integration-test'
     testImplementation 'org.mockito:mockito-core:5.6.0'
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.6.0'
+
 }
 
 tasks.withType(JavaCompile) {

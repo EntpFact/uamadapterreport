@@ -56,7 +56,7 @@ class CSVReportGeneratorTest {
 
         List<String> lines = Files.readAllLines(file.toPath());
         assertEquals(1, lines.size(), "CSV for null data should have exactly one line");
-        assertEquals("\"No data available\"", lines.get(0), "File should contain no-data message");
+        assertEquals("No data available", lines.get(0), "File should contain no-data message");
 
         file.delete(); // cleanup
     }
@@ -71,7 +71,7 @@ class CSVReportGeneratorTest {
 
         List<String> lines = Files.readAllLines(file.toPath());
         assertEquals(1, lines.size(), "CSV for empty list should have exactly one line");
-        assertEquals("\"No data available\"", lines.get(0), "File should contain no-data message");
+        assertEquals("No data available", lines.get(0), "File should contain no-data message");
 
         file.delete(); // cleanup
     }

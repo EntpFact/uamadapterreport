@@ -1,88 +1,41 @@
 package com.hdfcbank.uamadapterreport.service;
 
 import com.hdfcbank.uamadapterreport.exception.CustomException;
-import com.jcraft.jsch.*;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.integration.sftp.session.SftpRemoteFileTemplate;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Service;
 
-import java.io.FileInputStream;
-import java.io.InputStream;
-import java.util.Properties;
+import java.io.File;
 
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class SFTPService {
 
-    @Value("${sftp.host}")
-    private String sftpHost;
-
-    @Value("${sftp.port:22}")
-    private int sftpPort;
-
-    @Value("${sftp.username}")
-    private String sftpUsername;
-
-    @Value("${sftp.password:}")
-    private String sftpPassword;
-
-    @Value("${sftp.private-key-path:}")
-    private String privateKeyPath;
-
-    @Value("${sftp.private-key-passphrase:}")
-    private String privateKeyPassphrase;
+    private final SftpRemoteFileTemplate sftpRemoteFileTemplate;
 
     public void uploadFile(String localFilePath, String remoteFilePath) {
-        Session session = null;
-        ChannelSftp channelSftp = null;
-
         try {
-            JSch jsch = new JSch();
+            File file = new File(localFilePath);
+            if (!file.exists()) {
+                throw new IllegalArgumentException("Local file does not exist: " + localFilePath);
+            }
 
-            // Add private key if present
-            if (privateKeyPath != null && !privateKeyPath.isBlank()) {
-                if (privateKeyPassphrase != null && !privateKeyPassphrase.isBlank()) {
-                    jsch.addIdentity(privateKeyPath, privateKeyPassphrase);
-                    log.info("Using private key with passphrase for authentication.");
-                } else {
-                    jsch.addIdentity(privateKeyPath);
-                    log.info("Using private key without passphrase for authentication.");
+            sftpRemoteFileTemplate.execute(session -> {
+                try (var inputStream = new java.io.FileInputStream(file)) {
+                    session.write(inputStream, remoteFilePath);
+                    log.info("File uploaded to SFTP at path: {}", remoteFilePath);
+                    return null;
                 }
-            }
-
-            session = jsch.getSession(sftpUsername, sftpHost, sftpPort);
-
-            // Fallback to password if private key is not used
-            if ((privateKeyPath == null || privateKeyPath.isBlank()) && sftpPassword != null) {
-                session.setPassword(sftpPassword);
-                log.info("Using password for authentication.");
-            }
-
-            Properties config = new Properties();
-            config.put("StrictHostKeyChecking", "no");
-            session.setConfig(config);
-            session.connect();
-
-            Channel channel = session.openChannel("sftp");
-            channel.connect();
-            channelSftp = (ChannelSftp) channel;
-
-            try (InputStream inputStream = new FileInputStream(localFilePath)) {
-                channelSftp.put(inputStream, remoteFilePath);
-            }
-
-            log.info("File uploaded successfully to SFTP: {}", remoteFilePath);
+            });
 
         } catch (Exception e) {
-            log.error("SFTP upload failed: {}", e.getMessage(), e);
+            log.error("SFTP upload failed for file {}: {}", localFilePath, e.getMessage(), e);
             throw new CustomException("SFTP upload failed for file: " + localFilePath, e);
-        } finally {
-            if (channelSftp != null) {
-                channelSftp.exit();
-            }
-            if (session != null) {
-                session.disconnect();
-            }
         }
     }
+
 }
