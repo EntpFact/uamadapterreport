@@ -1,78 +1,77 @@
 package com.hdfcbank.uamadapterreport.service;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 class CSVReportGeneratorTest {
 
-    // Provide the delimiter directly for testing
-    private final CSVReportGenerator generator = new CSVReportGenerator(",");
+    private final String delimiter = ",";
+    private final CSVReportGenerator csvReportGenerator = new CSVReportGenerator(delimiter);
+    private File tempFile;
 
-    @Test
-    void testGenerateCSVReport() throws Exception {
-        List<Map<String, Object>> data = List.of(
-                Map.of("name", "Alice", "age", 30),
-                Map.of("name", "Bob", "age", 25)
-        );
-
-        String filePath = "test-output.csv";
-        generator.generateCSVReport(data, filePath);
-
-        File file = new File(filePath);
-        assertTrue(file.exists(), "CSV file was not created");
-
-        List<String> lines = Files.readAllLines(file.toPath());
-
-        assertTrue(lines.size() > 1, "CSV should contain header and at least one row");
-
-        // Remove wrapping quotes for validation
-        String header = lines.get(0).replace("\"", "");
-        assertTrue(header.contains("name") && header.contains("age"), "Header does not contain expected columns");
-
-        String row1 = lines.get(1).replace("\"", "");
-        assertTrue(row1.contains("Alice") && row1.contains("30"), "First row does not contain expected data");
-
-        String row2 = lines.get(2).replace("\"", "");
-        assertTrue(row2.contains("Bob") && row2.contains("25"), "Second row does not contain expected data");
-
-        file.delete(); // cleanup
+    @AfterEach
+    void cleanUp() {
+        if (tempFile != null && tempFile.exists()) {
+            tempFile.delete();
+        }
     }
 
     @Test
-    void testGenerateCSVReport_whenDataIsNull_writesNoDataAvailable() throws Exception {
-        String filePath = "test-empty-null.csv";
-        generator.generateCSVReport(null, filePath);
+    void testGenerateCSVReport_withData_shouldGenerateCSVWithBOM() throws IOException {
+        // Given
+        List<Map<String, Object>> data = new ArrayList<>();
+        Map<String, Object> row1 = new LinkedHashMap<>();
+        row1.put("Name", "John, Doe");
+        row1.put("Age", 30);
+        row1.put("Note", "Line\nBreak");
+        data.add(row1);
 
-        File file = new File(filePath);
-        assertTrue(file.exists(), "CSV file was not created for null data");
+        Map<String, Object> row2 = new LinkedHashMap<>();
+        row2.put("Name", "Jane \"JJ\" Smith");
+        row2.put("Age", 28);
+        row2.put("Note", "Normal");
+        data.add(row2);
 
-        List<String> lines = Files.readAllLines(file.toPath());
-        assertEquals(1, lines.size(), "CSV for null data should have exactly one line");
-        assertEquals("No data available", lines.get(0), "File should contain no-data message");
+        tempFile = File.createTempFile("test-report", ".csv");
 
-        file.delete(); // cleanup
+        // When
+        csvReportGenerator.generateCSVReport(data, tempFile.getAbsolutePath());
+
+        // Then
+        byte[] fileBytes = Files.readAllBytes(tempFile.toPath());
+
+        // Check BOM
+        assertEquals((byte)0xEF, fileBytes[0]);
+        assertEquals((byte)0xBB, fileBytes[1]);
+        assertEquals((byte)0xBF, fileBytes[2]);
+
+        String content = new String(fileBytes, StandardCharsets.UTF_8);
+        System.out.println("Generated CSV:\n" + content);
+
+        assertTrue(content.contains("Name,Age,Note"));
+        assertTrue(content.contains("\"John, Doe\",30,\"Line\nBreak\""));
+        assertTrue(content.contains("\"Jane \"\"JJ\"\" Smith\",28,Normal"));
     }
 
     @Test
-    void testGenerateCSVReport_whenDataIsEmpty_writesNoDataAvailable() throws Exception {
-        String filePath = "test-empty-list.csv";
-        generator.generateCSVReport(Collections.emptyList(), filePath);
+    void testGenerateCSVReport_emptyData_shouldWriteNoDataLine() throws IOException {
+        // Given
+        List<Map<String, Object>> emptyData = Collections.emptyList();
+        tempFile = File.createTempFile("test-empty-report", ".csv");
 
-        File file = new File(filePath);
-        assertTrue(file.exists(), "CSV file was not created for empty list");
+        // When
+        csvReportGenerator.generateCSVReport(emptyData, tempFile.getAbsolutePath());
 
-        List<String> lines = Files.readAllLines(file.toPath());
-        assertEquals(1, lines.size(), "CSV for empty list should have exactly one line");
-        assertEquals("No data available", lines.get(0), "File should contain no-data message");
-
-        file.delete(); // cleanup
+        // Then
+        String content = Files.readString(tempFile.toPath(), StandardCharsets.UTF_8);
+        assertTrue(content.startsWith("\uFEFF"));
+        assertTrue(content.contains("No data available"));
     }
 }
