@@ -15,7 +15,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
@@ -26,6 +25,7 @@ public class ReportService {
     private final DynamicReportQueryService queryService;
     private final CSVReportGenerator csvReportGenerator;
     private final SFTPService sftpService;
+    private final EmailService emailService;
 
     @Value("${report.directory}")
     private String reportDirectory;
@@ -33,47 +33,39 @@ public class ReportService {
     @Value("${sftp.directory}")
     private String defaultSftpDirectory;
 
-    @Value("${report.cleanup.retry-count:3}")  // default to 3 if not set
+    @Value("${report.cleanup.retry-count:3}")
     private int retryCount;
 
-    @Value("${report.cleanup.retry-delay-ms:500}")  // default to 500ms
+    @Value("${report.cleanup.retry-delay-ms:500}")
     private long retryDelayMs;
 
-    // Lock map to track running reports by report name
     private final ConcurrentHashMap<String, Object> runningReports = new ConcurrentHashMap<>();
 
     public ReportService(ReportConfigRepository configRepo,
                          DynamicReportQueryService queryService,
                          CSVReportGenerator csvReportGenerator,
-                         SFTPService sftpService) {
+                         SFTPService sftpService,
+                         EmailService emailService) {
         this.configRepo = configRepo;
         this.queryService = queryService;
         this.csvReportGenerator = csvReportGenerator;
         this.sftpService = sftpService;
+        this.emailService = emailService;
     }
 
-    /**
-     * Generate all active reports sequentially.
-     * Does not allow parallel execution of the same report.
-     */
     public void generateAllReports() {
         log.info("START generateAllReports - Thread: {} - Timestamp: {}", Thread.currentThread().getName(), System.currentTimeMillis());
         List<ReportConfig> configs = configRepo.findByActiveTrue();
-
         for (ReportConfig config : configs) {
             generateReport(config);
         }
         log.info("Finished generateAllReports - Thread: {}", Thread.currentThread().getName());
     }
 
-    /**
-     * Generate a single report with locking to avoid parallel runs of the same report.
-     */
     public void generateReport(ReportConfig config) {
         String reportName = config.getReportName();
         Object lock = new Object();
 
-        // Try to acquire lock for this report
         Object existingLock = runningReports.putIfAbsent(reportName, lock);
         if (existingLock != null) {
             log.warn("Report '{}' is already running. Skipping concurrent execution.", reportName);
@@ -96,14 +88,13 @@ public class ReportService {
             validateReportFileExists(filePath);
 
             String sftpDir = getSftpDirectory(config);
-            uploadAndCleanupReport(filePath, fileName, sftpDir);
+            uploadAndCleanupReport(filePath, fileName, sftpDir, config);
 
         } catch (CustomException e) {
             log.error("Custom exception during report generation for {}: {}", reportName, e.getMessage(), e);
         } catch (Exception e) {
             log.error("Unexpected error generating report for {}", reportName, e);
         } finally {
-            // Release lock
             runningReports.remove(reportName);
             log.info("Finished generateReport for {} - Thread: {}", reportName, Thread.currentThread().getName());
         }
@@ -143,10 +134,19 @@ public class ReportService {
                 : defaultSftpDirectory;
     }
 
-    private void uploadAndCleanupReport(Path filePath, String fileName, String sftpDirectory) {
+    private void uploadAndCleanupReport(Path filePath, String fileName, String sftpDirectory, ReportConfig config) {
         try {
             sftpService.uploadFile(filePath.toString(), sftpDirectory + "/" + fileName);
             log.info("Report uploaded to SFTP: {}", fileName);
+
+            // Trigger email notification
+            emailService.sendEmail(
+                    "success",
+                    config.getApplicationName(),
+                    config.getApplicationId(),
+                    sftpDirectory,
+                    List.of(fileName)
+            );
 
             deleteFileWithRetries(filePath);
 
@@ -169,9 +169,9 @@ public class ReportService {
                 log.warn("Attempt {} to delete file failed: {}. Retrying...", attempts, filePath, ex);
 
                 try {
-                    Thread.sleep(retryDelayMs); // Only this throws InterruptedException
+                    Thread.sleep(retryDelayMs);
                 } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt(); // good practice
+                    Thread.currentThread().interrupt();
                     log.error("Thread interrupted during retry delay for file deletion: {}", filePath, ie);
                     return;
                 }
@@ -182,8 +182,4 @@ public class ReportService {
             log.error("Failed to delete local report file after {} attempts: {}", attempts, filePath);
         }
     }
-
 }
-
-
-

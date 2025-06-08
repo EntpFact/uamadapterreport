@@ -56,3 +56,38 @@ sftp:
   directory: ${SFTP_DIRECTORY:/sftp/adapter/UAM_Reports}
   private-key-path: ${SFTP_PRIVATEKEYPATH:}
   private-key-passphrase: ${SFTP_PRIVATEKEYPASSPHRASE:}
+
+email:
+  rest:
+    url: ${EMAIL_REST_URL:http://emailservice.e-pricing.svc.cluster.local:10015/email}
+
+applications:
+  epricing:
+    success:
+      to: ${APPLICATION_EPRICING_SUCCESS_TO:team@example.com}
+      from: ${APPLICATION_EPRICING_SUCCESS_FROM:noreply@example.com}
+      cc: ${APPLICATION_EPRICING_SUCCESS_CC:manager@example.com}
+      bcc: ${APPLICATION_EPRICING_SUCCESS_BCC:audit@example.com}
+      subject: ${APPLICATION_EPRICING_SUCCESS_SUBJECT:UAM Report Generated}
+      status: ${APPLICATION_EPRICING_SUCCESS_STATUS:success}
+      reachOutEmail: ${APPLICATION_EPRICING_SUCCESS_REACHOUTEMAIL:ep.support@example.com}
+template:
+  epricing:
+    epricing-success-email-template: |-
+      Dear UAM Team,
+
+      UAM reports for Application ID: <applicationId> for "<applicationName>" application is generated for date <date>. Following reports are placed in the SFTP folder (<sftpPath>):
+
+      <reportFilesFormatted>
+
+      In case of any issue, please reach out to application team at – <reachOutEmail>
+
+      Regards,
+      Team Shikhar COE (<applicationName>)
+
+
+dapr:
+  service:
+    invocation:
+      enable: ${DAPR_SERVICE_INVOCATION_ENABLE:true}
+

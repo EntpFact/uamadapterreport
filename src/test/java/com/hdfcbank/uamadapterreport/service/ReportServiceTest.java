@@ -23,6 +23,7 @@ class ReportServiceTest {
     private CSVReportGenerator csvReportGenerator;
     private SFTPService sftpService;
     private ReportService reportService;
+    private EmailService emailService;
 
     private final String reportDir = System.getProperty("java.io.tmpdir");
 
@@ -32,8 +33,9 @@ class ReportServiceTest {
         queryService = mock(DynamicReportQueryService.class);
         csvReportGenerator = mock(CSVReportGenerator.class);
         sftpService = mock(SFTPService.class);
+        emailService = mock(EmailService.class);
 
-        reportService = new ReportService(configRepo, queryService, csvReportGenerator, sftpService);
+        reportService = new ReportService(configRepo, queryService, csvReportGenerator, sftpService,emailService);
         TestUtils.setField(reportService, "reportDirectory", reportDir);
         TestUtils.setField(reportService, "defaultSftpDirectory", "/upload");
         TestUtils.setField(reportService, "retryCount", 2);

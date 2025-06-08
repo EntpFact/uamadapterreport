@@ -11,6 +11,10 @@ public class ReportConfig {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    private String applicationName;
+
+    private String applicationId;
+
     private String reportName;
 
     private String fileNamePattern; // e.g., report_user_{timestamp}.xlsx
