@@ -1,5 +1,6 @@
 server:
   port: ${PORT:8099}
+  shutdown: ${APP_SHUTDOWN_TYPE:graceful}
 
 management:
   endpoints:
@@ -38,7 +39,8 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-
+  lifecycle:
+    timeout-per-shutdown-phase: ${GRACEFUL_SHUTDOWN_TIME:30s}
 report:
   directory: ${REPORT_DIRECTORY:D:/testfile}
   scheduler:
@@ -54,8 +56,7 @@ sftp:
   username: ${SFTP_USERNAME:demo}
   password: ${SFTP_PASSWORD:demo}
   directory: ${SFTP_DIRECTORY:/sftp/adapter/UAM_Reports}
-  private-key-path: ${SFTP_PRIVATEKEYPATH:}
-  private-key-passphrase: ${SFTP_PRIVATEKEYPASSPHRASE:}
+  private-key: ${SFTP_PRIVATE_KEY:}
 
 email:
   rest:
@@ -73,15 +74,16 @@ applications:
       reachOutEmail: ${APPLICATION_EPRICING_SUCCESS_REACHOUTEMAIL:ep.support@example.com}
 template:
   epricing:
-    epricing-success-email-template: |-
+    epricing-success-email-template:  |-
+    
       Dear UAM Team,
-
-      UAM reports for Application ID: <applicationId> for "<applicationName>" application is generated for date <date>. Following reports are placed in the SFTP folder (<sftpPath>):
-
-      <reportFilesFormatted>
-
+    
+      UAM reports for Application ID <applicationId> for "<applicationName>" application is generated for date <date>. Following reports are placed in the SFTP folder (<sftpPath>)
+    
+     <reportFilesFormatted>
+    
       In case of any issue, please reach out to application team at – <reachOutEmail>
-
+    
       Regards,
       Team Shikhar COE (<applicationName>)
 
@@ -90,4 +92,11 @@ dapr:
   service:
     invocation:
       enable: ${DAPR_SERVICE_INVOCATION_ENABLE:true}
+
+secret:
+  componentName: ${COMPONENT_NAME:reporting-dapr-secret-store}
+  map:
+    spring.datasource.password: ${DB_PASSWORD_SECRET:DB_PASSWORD_SECRET}
+    sftp.password: ${SFTP_PASSWORD_SECRET:SFTP_PASSWORD_SECRET}
+    sftp.private-key: ${SFTP_PRIVATE_KEY_SECRET:SFTP_PRIVATE_KEY_SECRET}
 

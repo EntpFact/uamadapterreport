@@ -55,6 +55,7 @@ dependencies {
         implementation 'org.springframework.boot:spring-boot-starter-actuator'
         implementation 'com.zaxxer:HikariCP:6.3.0'
         implementation 'org.projectlombok:lombok:1.18.26'
+        implementation 'com.yugabyte:jdbc-yugabytedb:42.7.3-yb-3'
         annotationProcessor 'org.projectlombok:lombok:1.18.26'
         // PostgreSQL Driver
         runtimeOnly 'org.postgresql:postgresql:42.7.5'
@@ -78,13 +79,23 @@ dependencies {
         implementation 'com.google.protobuf:protobuf-java:3.25.5'
         implementation 'com.squareup.okio:okio:3.9.0'
         implementation 'com.google.guava:guava:33.2.1-jre'
+         // Spring Retry
+        implementation 'org.springframework.retry:spring-retry'
 
-        // Testing Dependencies
+        // Spring AOP
+         implementation 'org.springframework.boot:spring-boot-starter-aop'
+
+        implementation 'io.dapr:dapr-sdk:1.14.1'
+
+         // Testing Dependencies
         testImplementation 'org.springframework.boot:spring-boot-starter-test'
         testImplementation 'org.springframework.integration:spring-integration-test'
         testImplementation 'org.mockito:mockito-core:5.6.0'
         testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
         testImplementation 'org.mockito:mockito-junit-jupiter:5.6.0'
+    // build.gradle
+        testImplementation "org.mockito:mockito-inline:5.2.0"
+
 
 }
 
