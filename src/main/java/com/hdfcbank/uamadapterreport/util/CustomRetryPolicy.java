@@ -16,6 +16,7 @@ import java.sql.SQLRecoverableException;
 import java.sql.SQLTransientConnectionException;
 import java.sql.SQLNonTransientConnectionException;
 import java.sql.SQLTimeoutException;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
@@ -68,7 +69,7 @@ public class CustomRetryPolicy extends ExceptionClassifierRetryPolicy {
                 if (msg == null) {
                     return false;
                 }
-                String lower = msg.toLowerCase();
+                String lower = msg.toLowerCase(Locale.ROOT);
                 return lower.contains("connection is closed")
                         || lower.contains("connection reset by peer")
                         || lower.contains("current transaction is expired or aborted");

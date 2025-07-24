@@ -13,14 +13,13 @@ class GlobalExceptionHandlerTest {
     @Test
     void testHandleCustomException() {
         // Arrange
-        String errorMessage = "Invalid input";
-        CustomException exception = new CustomException(errorMessage);
+        CustomException exception = new CustomException("Invalid input");
 
         // Act
         ResponseEntity<String> response = exceptionHandler.handleCustomException(exception);
 
         // Assert
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        assertEquals(errorMessage, response.getBody());
+        assertEquals("An unexpected error occurred...", response.getBody());
     }
 }

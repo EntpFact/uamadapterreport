@@ -26,19 +26,22 @@ public class SftpConnectionConfig {
 
         if (sftpProps.getPassword() != null && !sftpProps.getPassword().isBlank()) {
             factory.setPassword(sftpProps.getPassword());
-            log.info("Password authentication enabled");
+            log.info("Using password authentication");
         }
 
         if (sftpProps.getPrivateKey() != null && !sftpProps.getPrivateKey().isBlank()) {
-            Resource privateKeyResource = new ByteArrayResource(sftpProps.getPrivateKey().getBytes(StandardCharsets.UTF_8));
+            String pem = sftpProps.getPrivateKey().replace("\\n", "\n").replace("\\r", "");
+            Resource privateKeyResource = new ByteArrayResource(pem.getBytes(StandardCharsets.UTF_8));
             factory.setPrivateKey(privateKeyResource);
-            log.info("Private key authentication enabled");
+            log.info("Using private key authentication");
         }
 
-        factory.setAllowUnknownKeys(true); // disables strict host key checking
+        factory.setAllowUnknownKeys(true);
+        factory.setTimeout(60000); // increase timeout
 
         return new CachingSessionFactory<>(factory);
     }
+
 
     @Bean
     public SftpRemoteFileTemplate sftpRemoteFileTemplate(SessionFactory<SftpClient.DirEntry> sftpSessionFactory) {

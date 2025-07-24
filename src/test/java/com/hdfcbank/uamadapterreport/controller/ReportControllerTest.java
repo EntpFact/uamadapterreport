@@ -1,10 +1,13 @@
 package com.hdfcbank.uamadapterreport.controller;
 
+import com.hdfcbank.uamadapterreport.model.ReportRequest;
 import com.hdfcbank.uamadapterreport.scheduler.DynamicReportSchedulerService;
 import com.hdfcbank.uamadapterreport.service.ReportService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
+
+import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
@@ -23,23 +26,95 @@ class ReportControllerTest {
     }
 
     @Test
-    void testGenerateReport_success() {
-        ResponseEntity<String> response = reportController.generateReport();
+    void testGenerateAdhocReport_success() {
+        ReportRequest request = ReportRequest.builder()
+                .reportDate("2025-07-24")
+                .build();
 
-        verify(reportService, times(1)).generateAllReports();
-        assertEquals("All reports generated and moved successfully.", response.getBody());
+
+
+        String today = LocalDate.now().toString();
+        request.setReportDate(today);
+
+        ResponseEntity<String> response = reportController.generateAdhocReport(request);
+
+        verify(reportService, times(1)).generateAllReportsForDate(today);
         assertEquals(200, response.getStatusCodeValue());
+        assertEquals("Adhoc reports generated for date: " + today, response.getBody());
     }
 
     @Test
-    void testGenerateReport_exception() {
-        doThrow(new RuntimeException("Simulated failure")).when(reportService).generateAllReports();
+    void testGenerateAdhocReport_nullDate() {
+        ReportRequest request = ReportRequest.builder()
+                .reportDate(null)
+                .build();
 
-        ResponseEntity<String> response = reportController.generateReport();
 
-        verify(reportService, times(1)).generateAllReports();
-        assertEquals("Error generating reports.", response.getBody());
+        ResponseEntity<String> response = reportController.generateAdhocReport(request);
+
+        verifyNoInteractions(reportService);
+        assertEquals(400, response.getStatusCodeValue());
+        assertEquals("Report date is required.", response.getBody());
+    }
+
+    @Test
+    void testGenerateAdhocReport_blankDate() {
+        ReportRequest request = ReportRequest.builder()
+                .reportDate("   ")
+                .build();
+
+
+        ResponseEntity<String> response = reportController.generateAdhocReport(request);
+
+        verifyNoInteractions(reportService);
+        assertEquals(400, response.getStatusCodeValue());
+        assertEquals("Report date is required.", response.getBody());
+    }
+
+    @Test
+    void testGenerateAdhocReport_invalidDateFormat() {
+        ReportRequest request = ReportRequest.builder()
+                .reportDate("2025/07/24")
+                .build();
+
+
+        ResponseEntity<String> response = reportController.generateAdhocReport(request);
+
+        verifyNoInteractions(reportService);
+        assertEquals(400, response.getStatusCodeValue());
+        assertEquals("Invalid date format. Expected format: yyyy-MM-dd", response.getBody());
+    }
+
+    @Test
+    void testGenerateAdhocReport_futureDate() {
+        ReportRequest request = ReportRequest.builder()
+                .reportDate(LocalDate.now().plusDays(1).toString())
+                .build();
+
+
+        ResponseEntity<String> response = reportController.generateAdhocReport(request);
+
+        verifyNoInteractions(reportService);
+        assertEquals(400, response.getStatusCodeValue());
+        assertEquals("Report date cannot be in the future.", response.getBody());
+    }
+
+    @Test
+    void testGenerateAdhocReport_exception() {
+
+        String today = LocalDate.now().toString();
+        ReportRequest request = ReportRequest.builder()
+                .reportDate(today)
+                .build();
+
+
+        doThrow(new RuntimeException("Simulated error")).when(reportService).generateAllReportsForDate(today);
+
+        ResponseEntity<String> response = reportController.generateAdhocReport(request);
+
         assertEquals(500, response.getStatusCodeValue());
+        assertEquals("Error generating adhoc reports.", response.getBody());
+        verify(reportService, times(1)).generateAllReportsForDate(today);
     }
 
     @Test
@@ -47,18 +122,34 @@ class ReportControllerTest {
         ResponseEntity<String> response = reportController.reloadSchedule();
 
         verify(dynamicReportSchedulerService, times(1)).reloadSchedules();
-        assertEquals("Dynamic report schedules reloaded.", response.getBody());
         assertEquals(200, response.getStatusCodeValue());
+        assertEquals("Dynamic report schedules reloaded.", response.getBody());
     }
 
     @Test
-    void reloadSchedule_exception() {
-        doThrow(new RuntimeException("Simulated schedule reload error")).when(dynamicReportSchedulerService).reloadSchedules();
+    void testReloadSchedule_exception() {
+        doThrow(new RuntimeException("Simulated error")).when(dynamicReportSchedulerService).reloadSchedules();
 
         ResponseEntity<String> response = reportController.reloadSchedule();
 
+        verify(dynamicReportSchedulerService, times(1)).reloadSchedules();
         assertEquals(500, response.getStatusCodeValue());
         assertEquals("Error reloading schedules.", response.getBody());
-        verify(dynamicReportSchedulerService, times(1)).reloadSchedules();
+    }
+
+    @Test
+    void testReadinessEndpoint() {
+        ResponseEntity<String> response = reportController.readiness();
+
+        assertEquals(200, response.getStatusCodeValue());
+        assertEquals("Ready", response.getBody());
+    }
+
+    @Test
+    void testHealthEndpoint() {
+        ResponseEntity<String> response = reportController.health();
+
+        assertEquals(200, response.getStatusCodeValue());
+        assertEquals("Healthy", response.getBody());
     }
 }

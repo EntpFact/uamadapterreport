@@ -1,12 +1,15 @@
 package com.hdfcbank.uamadapterreport.controller;
 
+import com.hdfcbank.uamadapterreport.model.ReportRequest;
 import com.hdfcbank.uamadapterreport.scheduler.DynamicReportSchedulerService;
 import com.hdfcbank.uamadapterreport.service.ReportService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import lombok.extern.slf4j.Slf4j;
+
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
 @RestController
 @RequestMapping("/api/reports")
@@ -22,19 +25,35 @@ public class ReportController {
 
     }
 
-    @GetMapping("/generate")
-    public ResponseEntity<String> generateReport() {
+    @PostMapping("/generate-adhoc")
+    public ResponseEntity<String> generateAdhocReport(@RequestBody ReportRequest request) {
         try {
-            log.info("Manual report generation triggered.");
-            reportService.generateAllReports();  // <-- Updated method name
-            return ResponseEntity.ok("All reports generated and moved successfully.");
+            String dateStr = request.getReportDate();
+            if (dateStr == null || dateStr.isBlank()) {
+                return ResponseEntity.badRequest().body("Report date is required.");
+            }
+
+            LocalDate reportDate;
+            try {
+                reportDate = LocalDate.parse(dateStr, DateTimeFormatter.ISO_DATE);
+            } catch (DateTimeParseException e) {
+                return ResponseEntity.badRequest().body("Invalid date format. Expected format: yyyy-MM-dd");
+            }
+
+            if (reportDate.isAfter(LocalDate.now())) {
+                return ResponseEntity.badRequest().body("Report date cannot be in the future.");
+            }
+
+            log.info("Adhoc report generation triggered for date: {}", dateStr);
+            reportService.generateAllReportsForDate(dateStr);
+            return ResponseEntity.ok("Adhoc reports generated for date: " + dateStr);
         } catch (Exception e) {
-            log.error("Error generating reports: ", e);
-            return ResponseEntity.internalServerError().body("Error generating reports.");
+            log.error("Error generating adhoc reports: ", e);
+            return ResponseEntity.internalServerError().body("Error generating adhoc reports.");
         }
     }
 
-    @GetMapping("/reload-schedule")
+    @PostMapping("/reload-schedule")
     public ResponseEntity<String> reloadSchedule() {
         try {
             log.info("Reloading all dynamic report schedules.");

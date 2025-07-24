@@ -2,17 +2,24 @@ package com.hdfcbank.uamadapterreport.service;
 
 import com.hdfcbank.uamadapterreport.exception.CustomException;
 import com.hdfcbank.uamadapterreport.model.ReportConfig;
+import com.hdfcbank.uamadapterreport.model.ReportRequest;
 import com.hdfcbank.uamadapterreport.repository.ReportConfigRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+
 import org.springframework.stereotype.Service;
+
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -61,6 +68,8 @@ public class ReportService {
         }
         log.info("Finished generateAllReports - Thread: {}", Thread.currentThread().getName());
     }
+
+
 
     public void generateReport(ReportConfig config) {
         String reportName = config.getReportName();
@@ -116,6 +125,26 @@ public class ReportService {
 
         return pattern.replace("{timestamp}", timestamp);
     }
+
+    private String generateAdhocFileName(ReportConfig config, String reportDate) {
+        String pattern = config.getFileNamePattern();
+
+        if (pattern == null || pattern.trim().isEmpty()) {
+            throw new CustomException("File name pattern is missing in config: " + config.getReportName());
+        }
+
+        if (!pattern.contains("{timestamp}")) {
+            throw new CustomException("Adhoc report pattern must contain {timestamp} placeholder.");
+        }
+
+        try {
+            String formattedDate = LocalDate.parse(reportDate).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+            return pattern.replace("{timestamp}", formattedDate);
+        } catch (DateTimeParseException e) {
+            throw new CustomException("Invalid report date format. Expected yyyy-MM-dd");
+        }
+    }
+
 
     private void generateCSVReport(List<Map<String, Object>> data, Path filePath) throws IOException {
         csvReportGenerator.generateCSVReport(data.isEmpty() ? List.of() : data, filePath.toString());
@@ -182,4 +211,55 @@ public class ReportService {
             log.error("Failed to delete local report file after {} attempts: {}", attempts, filePath);
         }
     }
+
+    public void generateAllReportsForDate(String reportDate) {
+        log.info("START generateAllReportsForDate - Thread: {} - Date: {}", Thread.currentThread().getName(), reportDate);
+        List<ReportConfig> configs = configRepo.findByActiveTrue();
+        for (ReportConfig config : configs) {
+            generateReportForDate(config, reportDate);
+        }
+        log.info("Finished generateAllReportsForDate - Thread: {}", Thread.currentThread().getName());
+    }
+
+    public void generateReportForDate(ReportConfig config, String reportDate) {
+        String reportName = config.getReportName();
+        Object lock = new Object();
+
+        Object existingLock = runningReports.putIfAbsent(reportName + "-" + reportDate, lock);
+        if (existingLock != null) {
+            log.warn("Report '{}' is already running for date {}. Skipping concurrent execution.", reportName, reportDate);
+            return;
+        }
+
+        log.info("START generateReport for {} - Date: {} - Thread: {}", reportName, reportDate, Thread.currentThread().getName());
+
+        try {
+            validateReportDirectory();
+
+            String fileName = generateAdhocFileName(config,reportDate);
+            Path filePath = Paths.get(reportDirectory, fileName);
+
+            log.info("Generating adhoc report: {} with file name: {}", reportName, fileName);
+
+            // Override date in SQL
+            String modifiedQuery = config.getSqlQuery().replace("CURRENT_DATE - INTERVAL '1 day'", "'" + reportDate + "'");
+
+            List<Map<String, Object>> data = queryService.runQuery(modifiedQuery);
+            generateCSVReport(data, filePath);
+
+            validateReportFileExists(filePath);
+
+            String sftpDir = getSftpDirectory(config);
+            uploadAndCleanupReport(filePath, fileName, sftpDir, config);
+
+        } catch (CustomException e) {
+            log.error("Custom exception during report generation for {}: {}", reportName, e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Unexpected error generating report for {}", reportName, e);
+        } finally {
+            runningReports.remove(reportName + "-" + reportDate);
+            log.info("Finished adhoc generateReport for {} - Thread: {}", reportName, Thread.currentThread().getName());
+        }
+    }
+
 }

@@ -124,4 +124,58 @@ class ReportServiceTest {
         config.setActive(true);
         return config;
     }
+
+    @Test
+    void testGenerateAllReportsForDate_success() throws Exception {
+        String reportDate = "2025-07-24";
+        String pattern = "adhoc_{timestamp}.csv";
+        ReportConfig config = createReportConfig("AdhocReport", pattern, "/upload/adhoc");
+
+        when(configRepo.findByActiveTrue()).thenReturn(List.of(config));
+        when(queryService.runQuery(anyString())).thenReturn(List.of(Map.of("id", 123)));
+
+        doAnswer(invocation -> {
+            String pathStr = invocation.getArgument(1);
+            Files.write(Paths.get(pathStr), "id\n123".getBytes());
+            return null;
+        }).when(csvReportGenerator).generateCSVReport(anyList(), anyString());
+
+        reportService.generateAllReportsForDate(reportDate);
+
+        verify(sftpService).uploadFile(
+                argThat(localPath -> localPath.endsWith(".csv")),
+                argThat(remotePath -> remotePath.startsWith("/upload/adhoc/adhoc_") && remotePath.endsWith(".csv"))
+        );
+    }
+
+    @Test
+    void testGenerateAllReportsForDate_emptyQueryResult() throws Exception {
+        String reportDate = "2025-07-24";
+        ReportConfig config = createReportConfig("EmptyQuery", "empty_{timestamp}.csv", null);
+
+        when(configRepo.findByActiveTrue()).thenReturn(List.of(config));
+        when(queryService.runQuery(anyString())).thenReturn(List.of()); // empty result
+
+        doAnswer(invocation -> {
+            String pathStr = invocation.getArgument(1);
+            Files.write(Paths.get(pathStr), "".getBytes());
+            return null;
+        }).when(csvReportGenerator).generateCSVReport(anyList(), anyString());
+
+        reportService.generateAllReportsForDate(reportDate);
+
+        verify(sftpService).uploadFile(anyString(), anyString());
+    }
+    @Test
+    void testGenerateAllReportsForDate_invalidFilePattern() {
+        String reportDate = "2025-07-24";
+        ReportConfig config = createReportConfig("BadPattern", "no_timestamp.csv", "/upload/bad");
+
+        when(configRepo.findByActiveTrue()).thenReturn(List.of(config));
+
+        assertDoesNotThrow(() -> reportService.generateAllReportsForDate(reportDate));
+
+        verify(sftpService, never()).uploadFile(anyString(), anyString());
+    }
+
 }

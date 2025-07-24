@@ -24,38 +24,36 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME:admin}
     password: ${SPRING_DATASOURCE_PASSWORD:test123}
     driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:org.postgresql.Driver}
-    type: com.zaxxer.hikari.HikariDataSource
+
     hikari:
       minimum-idle: ${SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE:5}
       maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:20}
       connection-timeout: ${SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT:60000}
       max-lifetime: ${SPRING_DATASOURCE_HIKARI_MAX_LIFETIME:1800000}
-      keepalive-time: ${SPRING_DATASOURCE_HIKARI_KEEPALIVE_TIME:60000}
+      idle-timeout: ${SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT:180000}
 
-  jpa:
-    hibernate:
-      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
-    show-sql: ${SPRING_JPA_SHOW_SQL:true}
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-  lifecycle:
-    timeout-per-shutdown-phase: ${GRACEFUL_SHUTDOWN_TIME:30s}
+
 report:
   directory: ${REPORT_DIRECTORY:D:/testfile}
   scheduler:
-    cron: ${REPORT_SCHEDULER_CRON:0 */2 * * * ?}
+    cron: ${REPORT_SCHEDULER_CRON:0 0 0 * * ?}
   csv:
     delimiter: ${REPORT_CSV_DELIMITER:,}
   cleanup:
     retry-count: ${REPORT_CLEANUP_RETRYCOUNT:3}
     retry-delay-ms: ${REPORT_CLEANUP_RETRYDELAY:500}
 sftp:
-  host: ${SFTP_HOST:35.226.240.30}
-  port: ${SFTP_PORT:22}
-  username: ${SFTP_USERNAME:demo}
+  #host: ${SFTP_HOST:35.226.240.30}
+  #port: ${SFTP_PORT:22}
+  #username: ${SFTP_USERNAME:demo}
+  #password: ${SFTP_PASSWORD:demo}
+  #directory: ${SFTP_DIRECTORY:/sftp/adapter/UAM_Reports}
+  #private-key: ${SFTP_PRIVATE_KEY:}
+  host: ${SFTP_HOST:localhost}
+  port: ${SFTP_PORT:2222}
+  username: ${SFTP_USERNAME:testuser}
   password: ${SFTP_PASSWORD:demo}
-  directory: ${SFTP_DIRECTORY:/sftp/adapter/UAM_Reports}
+  directory: ${SFTP_DIRECTORY:/upload}
   private-key: ${SFTP_PRIVATE_KEY:}
 
 email:
@@ -74,18 +72,8 @@ applications:
       reachOutEmail: ${APPLICATION_EPRICING_SUCCESS_REACHOUTEMAIL:ep.support@example.com}
 template:
   epricing:
-    epricing-success-email-template:  |-
-    
-      Dear UAM Team,
-    
-      UAM reports for Application ID <applicationId> for "<applicationName>" application is generated for date <date>. Following reports are placed in the SFTP folder (<sftpPath>)
-    
-     <reportFilesFormatted>
-    
-      In case of any issue, please reach out to application team at – <reachOutEmail>
-    
-      Regards,
-      Team Shikhar COE (<applicationName>)
+    epricing-success-email-template: ${EPRICING_SUCCESS_EMAIL_TEMPLATE:dummy}
+
 
 
 dapr:

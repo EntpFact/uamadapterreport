@@ -58,7 +58,7 @@ dependencies {
         implementation 'com.yugabyte:jdbc-yugabytedb:42.7.3-yb-3'
         annotationProcessor 'org.projectlombok:lombok:1.18.26'
         // PostgreSQL Driver
-        runtimeOnly 'org.postgresql:postgresql:42.7.5'
+        runtimeOnly 'org.postgresql:postgresql:42.7.7'
         implementation 'org.apache.tomcat.embed:tomcat-embed-core:11.0.7'
         implementation 'org.springframework.integration:spring-integration-file'
         implementation 'org.springframework.integration:spring-integration-sftp:6.5.0'
@@ -95,6 +95,7 @@ dependencies {
         testImplementation 'org.mockito:mockito-junit-jupiter:5.6.0'
     // build.gradle
         testImplementation "org.mockito:mockito-inline:5.2.0"
+        testImplementation 'org.assertj:assertj-core:3.27.3'
 
 
 }
