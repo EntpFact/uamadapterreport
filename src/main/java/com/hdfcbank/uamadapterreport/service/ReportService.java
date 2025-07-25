@@ -241,8 +241,9 @@ public class ReportService {
 
             log.info("Generating adhoc report: {} with file name: {}", reportName, fileName);
 
-            // Override date in SQL
-            String modifiedQuery = config.getSqlQuery().replace("CURRENT_DATE - INTERVAL '1 day'", "'" + reportDate + "'");
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            String safeDate = "'" + formatter.format(LocalDate.parse(reportDate)) + "'";
+            String modifiedQuery = config.getSqlQuery().replace("CURRENT_DATE - INTERVAL '1 day'", safeDate);
 
             List<Map<String, Object>> data = queryService.runQuery(modifiedQuery);
             generateCSVReport(data, filePath);

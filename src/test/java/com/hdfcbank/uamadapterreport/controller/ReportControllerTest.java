@@ -40,7 +40,7 @@ class ReportControllerTest {
 
         verify(reportService, times(1)).generateAllReportsForDate(today);
         assertEquals(200, response.getStatusCodeValue());
-        assertEquals("Adhoc reports generated for date: " + today, response.getBody());
+        assertEquals("Adhoc reports generated",response.getBody());
     }
 
     @Test
@@ -152,4 +152,32 @@ class ReportControllerTest {
         assertEquals(200, response.getStatusCodeValue());
         assertEquals("Healthy", response.getBody());
     }
+
+    @Test
+    void testGenerateAdhocReport_invalidDate_missingZeroPadding() {
+        ReportRequest request = ReportRequest.builder()
+                .reportDate("2025-7-4")  // not yyyy-MM-dd
+                .build();
+
+        ResponseEntity<String> response = reportController.generateAdhocReport(request);
+
+        verifyNoInteractions(reportService);
+        assertEquals(400, response.getStatusCodeValue());
+        assertEquals("Invalid date format. Expected format: yyyy-MM-dd", response.getBody());
+    }
+
+    @Test
+    void testGenerateAdhocReport_invalidDate_extraCharacters() {
+        ReportRequest request = ReportRequest.builder()
+                .reportDate("2025-07-24abc")  // extra characters
+                .build();
+
+        ResponseEntity<String> response = reportController.generateAdhocReport(request);
+
+        verifyNoInteractions(reportService);
+        assertEquals(400, response.getStatusCodeValue());
+        assertEquals("Invalid date format. Expected format: yyyy-MM-dd", response.getBody());
+    }
+
+
 }
